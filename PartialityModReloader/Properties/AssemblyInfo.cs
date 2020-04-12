@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Laymain")]
 [assembly: AssemblyProduct("PartialityModReloader")]
-[assembly: AssemblyCopyright("Copyright © Laymain 2020")]
+[assembly: AssemblyCopyright("Copyright © 2020 Laymain")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
