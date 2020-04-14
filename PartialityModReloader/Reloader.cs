@@ -29,11 +29,15 @@ namespace PartialityModReloader
 
         private void BuildCache(string folder)
         {
+            Log.WriteLine($"Looking for reloadable methods in {folder}");
             foreach (string filepath in Directory.GetFiles(folder, "*.dll"))
-            foreach (MethodInfo method in ReadReloadableMethods(filepath))
             {
-                _reloadableMethods.Add(method.GetKey(), method.GetAddress());
-                Console.WriteLine($"Reloadable method found: {method.GetKey()}");
+                Log.WriteLine($"Analysing file: {filepath}");
+                foreach (MethodInfo method in ReadReloadableMethods(filepath))
+                {
+                    _reloadableMethods.Add(method.GetKey(), method.GetAddress());
+                    Log.WriteLine($"Reloadable method found: {method.GetKey()}");
+                }
             }
         }
 
@@ -44,19 +48,19 @@ namespace PartialityModReloader
                 return
                     from type in Assembly.Load(File.ReadAllBytes(filepath)).GetTypes()
                     from method in type.GetMethods(AllBindings)
-                    where method?.MethodImplementationFlags == MethodImplAttributes.NoInlining
+                    where method?.GetMethodImplementationFlags() == MethodImplAttributes.NoInlining
                     select method;
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Error while analysing file '{filepath}': {e.Message}");
+                Log.WriteLine($"Error while analysing file '{filepath}': {e.Message}");
                 return Enumerable.Empty<MethodInfo>();
             }
         }
 
         private void ReloadMethods(string filepath)
         {
-            Console.WriteLine($"File changed: {filepath}");
+            Log.WriteLine($"File changed: {filepath}");
             try
             {
                 foreach (MethodInfo method in ReadReloadableMethods(filepath))
@@ -64,18 +68,18 @@ namespace PartialityModReloader
                     if (_reloadableMethods.TryGetValue(method.GetKey(), out long currentAddress))
                     {
                         Memory.WriteJump(currentAddress, method.GetAddress());
-                        Console.WriteLine($"Reloadable method updated: {method.GetKey()}");
+                        Log.WriteLine($"Reloadable method updated: {method.GetKey()}");
                     }
                     else
                     {
                         _reloadableMethods.Add(method.GetKey(), method.GetAddress());
-                        Console.WriteLine($"New reloadable method found: {method.GetKey()}");
+                        Log.WriteLine($"New reloadable method found: {method.GetKey()}");
                     }
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Error while reloading file '{filepath}': {e.Message}");
+                Log.WriteLine($"Error while reloading file '{filepath}': {e.Message}");
             }
         }
 

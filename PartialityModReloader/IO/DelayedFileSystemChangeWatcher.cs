@@ -1,14 +1,21 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Runtime.Caching;
+using System.Linq;
 using System.Timers;
 
 namespace PartialityModReloader.IO
 {
     public class DelayedFileSystemChangeWatcher : IDisposable
     {
+        private class CacheItem<T>
+        {
+            public T Value { get; set; }
+            public DateTime Expiration { get; set; }
+        }
+
         private readonly FileSystemWatcher _watcher = new FileSystemWatcher {NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite, EnableRaisingEvents = false};
-        private readonly MemoryCache _events = new MemoryCache(nameof(DelayedFileSystemChangeWatcher));
+        private readonly Dictionary<string, CacheItem<FileSystemEventArgs>> _events = new Dictionary<string, CacheItem<FileSystemEventArgs>>();
         private readonly TimeSpan _delay;
         private readonly Timer _timer;
 
@@ -57,23 +64,38 @@ namespace PartialityModReloader.IO
         public DelayedFileSystemChangeWatcher(TimeSpan delay)
         {
             _delay = delay;
-            _timer = new Timer(_delay.TotalMilliseconds) { Enabled = true };
-            _timer.Elapsed += (sender, args) => _events.Trim(1); // force cache expiration check every "delay"
+            _timer = new Timer(_delay.TotalMilliseconds) {Enabled = true};
+            _timer.Elapsed += (sender, args) => CacheEviction();
             _watcher.Changed += OnChanged;
         }
 
         private void OnChanged(object sender, FileSystemEventArgs e)
         {
-            if (Changed != null)
+            if (Changed == null) return;
+            var item = new CacheItem<FileSystemEventArgs>
             {
-                _events.Set(e.FullPath, e, new CacheItemPolicy {SlidingExpiration = _delay, RemovedCallback = RemovedCallback});
+                Value = e,
+                Expiration = DateTime.Now.Add(_delay)
+            };
+            lock (_events)
+            {
+                _events.Add(e.FullPath, item);
             }
         }
 
-        private void RemovedCallback(CacheEntryRemovedArguments arguments)
+        private void CacheEviction()
         {
-            if (arguments.RemovedReason == CacheEntryRemovedReason.Expired)
-                Changed?.Invoke(this, arguments.CacheItem.Value as FileSystemEventArgs);
+            var expiredItems = new HashSet<string>();
+            lock (_events)
+            {
+                foreach (KeyValuePair<string, CacheItem<FileSystemEventArgs>> pair in _events.Where(pair => pair.Value.Expiration > DateTime.Now))
+                {
+                    expiredItems.Add(pair.Key);
+                    Changed?.Invoke(this, pair.Value.Value);
+                }
+                foreach (string filepath in expiredItems)
+                    _events.Remove(filepath);
+            }
         }
 
         public void Dispose()
@@ -81,7 +103,6 @@ namespace PartialityModReloader.IO
             _timer.Enabled = false;
             _timer.Close();
             _watcher.Dispose();
-            _events.Dispose();
         }
     }
 }
