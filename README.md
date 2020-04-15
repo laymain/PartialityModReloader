@@ -31,8 +31,8 @@ _(from [laymain/Partiality](https://github.com/laymain/Partiality))_ and copy it
 ### How to use
 
 * Mark your reloadable methods by using the following attribute `[MethodImpl(MethodImplOptions.NoInlining)]`
-* Enable `PartialityModeReloader` and your mod using `PartialityLauncher`
-* Your mod marked methods will be reloadable at runtime when you update your `.dll` file
+* Enable `PartialityModReloader` and your mod using `PartialityLauncher`
+* Your mod marked methods will be reloaded at runtime when you update your `.dll` file
 
 ### Remarks
 
